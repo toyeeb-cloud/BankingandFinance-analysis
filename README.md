@@ -66,14 +66,15 @@ Example: Creating customer table...
 ---
 ## Constraints and Business Rules
 
-To reinforce data integrity and implement realistic business logic, this database includes a range of `CHECK`, `UNIQUE`, and `DEFAULT` constraints in addition to foreign key relationships.
+To support data integrity and implement realistic business logic, this database includes a range of `CHECK`, `UNIQUE`, and `DEFAULT` constraints in addition to foreign key relationships.
 
 ###  Check Constraints
 
 | Constraint | Table       | Description                                                                 |
 |------------|-------------|-----------------------------------------------------------------------------|
 | `CHK_account_type` | `account`    | Limits values to allowed types such as `'Savings'`, `'Current'`, or `'Business`. |
-| `CHK_transactions_amount` | `bank_transaction`| Prevents negative or zero transaction amounts.                          |
+| `CHK_transactions_type` | `bank_transaction`| - Restricts transaction_type values to predefined categories such as `'Deposit'`,`'Withdrawal'`,`'Transfer'`,`'Purchase'`.
+.                          |
 
 ###  Unique Constraints
 
@@ -86,49 +87,58 @@ To reinforce data integrity and implement realistic business logic, this databas
 
 | Column         | Table        | Default Value | Description                                                    |
 |----------------|--------------|----------------|----------------------------------------------------------------|
-| `AccountStatus`| `account`   | `'Active'`     | Sets new accounts to active unless otherwise specified.        |
-| `DateOpened`   | `account`   | `GETDATE()`    | Captures the account creation timestamp.                       |
+| `loan_status`| `loan`  | `'pending'`     | Sets new loan to pending untill it got approved .        |
+|`opening_date`   | `account`   | `GETDATE()`    | Captures the account creation timestamp.                       |
 
 
 These constraints align closely with business processes in real-world financial systems—enabling data validation at the schema level and minimizing the risk of inconsistent or invalid entries.
 
 ## Sample query and cases 
 
-### 1. Repeat Purchase Customers (Power BI integration scenario)
-```sql
-    SELECT
-        customer_id,
-        COUNT(*) AS PurchaseCount
-    FROM bank_Transaction
-    WHERE transaction_type = 'Purchase'
-    GROUP BY customer_id
-    HAVING COUNT(*) > 1;
-```
-
-### 2.Monthly Revenue by Account Type
+### 1.Monthly TotalInflow by Account Type
 ```sql 
    SELECT 
        FORMAT(transaction_date, 'yyyy-MM') AS Month,
        a.account_type,
-       SUM(t.amount) AS TotalRevenue
-  FROM bank_transactions t
-  JOIN Aacounts a ON t.account_id= a.account_id
-  WHERE t.transaction_type = 'Credit'
+       SUM(t.amount) AS Total_Inflow
+  FROM bank_transaction t
+  JOIN account a ON t.account_id= a.account_id
+  WHERE t.transaction_type in ('Payment','Deposit')
   GROUP BY FORMAT(Transaction_date, 'yyyy-MM'), a.account_type
   ORDER BY Month;
 ```
-### 3. Loans With High Risk (Interest Rate > 20%)
+### 2. Fetch the loan IDs and amounts for loans with an interest rate above 5% and a remaining balance below £50,000.
 ```sql
-   SELECT 
-         LoanID, 
-         CustomerID,
-         Amount, 
-         InterestRate
-FROM Loans
-WHERE InterestRate > 20;
+    SELECT
+         l.loan_id,
+         l.principal_amount,
+         ISNULL(SUM(rp.amount_paid), 0) AS total_repaid,
+        (l.principal_amount - ISNULL(SUM(rp.amount_paid), 0)) AS remaining_balance
+   FROM loan l
+   JOIN repayment rp on l.loan_id = rp.loan_id
+   WHERE l.interest_rate > 5.0 
+   GROUP BY l.loan_id,l.principal_amount
+   HAVING (l.principal_amount - ISNULL(SUM(rp.amount_paid), 0)) < 50000;
 ```
-     
-   
+---
+## Power BI Integration
+
+This database was designed to also support insightful real-time reporting using Power BI. Key dashboards were created to visualize kpi,financial trends,and operational metrics, such as:
+
+- **Monthly Revenue Trends**: Filterable by account type and customer region.
+- **Repeat Purchase Rates**: Identifies customer loyalty and frequency of transactions.
+- **Loan Risk Segmentation**: Highlights loans with high interest rates or overdue balances.
+
+Power BI connects directly to the SQL database using DirectQuery or Import mode. Custom DAX measures were integrated for calculations
+Example :
+
+```DAX
+RepeatRate = 
+CALCULATE(
+    COUNTROWS(bank_transaction),
+    FILTER(bank_tansaction,bank_transaction.transaction_type = "Purchase")
+)     
+```
 
 
 
