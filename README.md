@@ -53,15 +53,22 @@ The database schema was implemented using T-SQL (Transact-SQL), providing robust
 - Constraints & Validation: Additional constraints such as CHECK, NOT NULL, and UNIQUE were applied to enforce business rules and validate input data.
 Example: Creating customer table...
 ```Sql
--- CREATE TABLE customer(
+CREATE TABLE customer(
                       customer_id INT PRIMARY KEY IDENTITY(1,1),
                       first_name  NVARCHAR(15) NOT NULL,
                       last_name NVARCHAR(15) NOT NULL,
-                      date_of_birth DATE NOT NULL,
-                      address VARCHAR(100) ,
-                      contact_number VARCHAR(20),
                       email NVARCHAR(50) NOT NULL,
-                      date_created DATETIME DEFAULT GETDATE(); 
+                      contact_number VARCHAR(20),
+                      address VARCHAR(100) ,
+                      date_of_birth DATE NOT NULL,
+                      opening_date DATETIME DEFAULT GETDATE()
+
+-- Constraints for data integrity
+                      CONSTRAINT UQ_customer_email UNIQUE (email),
+                      CONSTRAINT CHK_customer_contact CHECK (contact_number NOT LIKE '%[^0-9+]%'),
+                      CONSTRAINT CHK_customer_email CHECK (email LIKE '%@%.%')
+                    
+);
 ```
 ---
 ## Constraints and Business Rules
@@ -72,8 +79,8 @@ To support data integrity and implement realistic business logic, this database 
 
 | Constraint | Table       | Description                                                                 |
 |------------|-------------|-----------------------------------------------------------------------------|
-| `CHK_account_type` | `account`    | Limits values to allowed types such as `'Savings'`, `'Current'`, or `'Business`. |
-| `CHK_transactions_type` | `bank_transaction`| - Restricts transaction_type values to predefined categories such as `'Deposit'`,`'Withdrawal'`,`'Transfer'`,`'Purchase'`.
+| `CHK_account_type` | `account`    | Limits values to allowed types such as `('Savings','Current','Business','Premium','Student','ISA','Joint','Basic')`. |
+| `CHK_transactions_type` | `bank_transaction`| - Restricts transaction_type values to predefined categories such as `'Direct Deposit'`,`'ATM Withdrawal'`,`'Bank Transfer'`,`'Card Payment'`.
 .                          |
 
 ###  Unique Constraints
@@ -120,25 +127,8 @@ These constraints align closely with business processes in real-world financial 
    GROUP BY l.loan_id,l.principal_amount
    HAVING (l.principal_amount - ISNULL(SUM(rp.amount_paid), 0)) < 50000;
 ```
----
-## Power BI Integration
 
-This database was designed to also support insightful real-time reporting using Power BI. Key dashboards were created to visualize kpi,financial trends,and operational metrics, such as:
 
-- **Monthly Revenue Trends**: Filterable by account type and customer region.
-- **Repeat Purchase Rates**: Identifies customer loyalty and frequency of transactions.
-- **Loan Risk Segmentation**: Highlights loans with high interest rates or overdue balances.
-
-Power BI connects directly to the SQL database using DirectQuery or Import mode. Custom DAX measures were integrated for calculations
-Example :
-
-```DAX
-RepeatRate = 
-CALCULATE(
-    COUNTROWS(bank_transaction),
-    FILTER(bank_tansaction,bank_transaction.transaction_type = "Purchase")
-)     
-```
 
 
 
